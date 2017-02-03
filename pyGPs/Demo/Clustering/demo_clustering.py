@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 import math
 
 
-def calculateRMSEPyGP(vectorX, vectorY, labelList, weighted=True):
+def calculateRMSEPyGP(vectorX, vectorY, weighted=True, plot=False):
     """
     calculate the root mean squared error
     Parameters:
@@ -30,45 +30,48 @@ def calculateRMSEPyGP(vectorX, vectorY, labelList, weighted=True):
     weighted: weight RMSE wrt variance of prediction
     Returns:
     --------
-    list of (household,rmse) tuples
+    list of (id,rmse) tuples
     """
     #setX = [preprocessing.scale(element )for element in vectorX]
     setY = preprocessing.scale(vectorY,axis=1)
 
     model = pyGPs.GPR()      # specify model (GP regression)
-    k =  pyGPs.cov.Linear() + pyGPs.cov.RBF() #hyperparams will be set with optimizeHyperparameters method
+    k =  pyGPs.cov.Linear() + pyGPs.cov.RBF() # hyperparams will be set with optimizeHyperparameters method
     model.setPrior(kernel=k)
 
-    hyperparams, model2 = GPE.optimizeHyperparameters([0.0000001,0.0000001,0.0000001],model,vectorX,setY,bounds=[(None,5),(None,5),(None,5)],method = 'L-BFGS-B')
-    print('hyerparameters used:',hyperparams)
+    hyperparams, model2 = GPE.optimizeHyperparameters([0.0000001, 0.0000001, 0.0000001],
+                                                      model, vectorX, setY,
+                                                      bounds=[(None, 5), (None, 5), (None, 5)],
+                                                      method = 'L-BFGS-B')
+    print('hyperparameters used:', hyperparams)
     # mean (y_pred) variance (ys2), latent mean (fmu) variance (fs2), log predictive prob (lp)
     y_pred, ys2, fm, fs2, lp = model2.predict(vectorX[0])
 
-    #plot general model after normalizing the input timeseries
-    xs = vectorX[0]
-    ym = y_pred
-    xss  = np.reshape(xs,(xs.shape[0],))
-    ymm  = np.reshape(ym,(ym.shape[0],))
-    ys22 = np.reshape(ys2,(ys2.shape[0],))
-    plt.plot(xss, ym, color='red', label="Prediction")
-    plt.fill_between(xss,ymm + 2.*np.sqrt(ys22), ymm - 2.*np.sqrt(ys22), facecolor=[0.7539, 0.89453125, 0.62890625, 1.0], linewidths=0.0)
-    for i in setY:
-        plt.plot(i,color='blue')
-    plt.legend()
-    plt.show(block=True)
+    if plot:
+        xs = vectorX[0]
+        ym = y_pred
+        xss = np.reshape(xs, (xs.shape[0],))
+        ymm = np.reshape(ym, (ym.shape[0],))
+        ys22 = np.reshape(ys2, (ys2.shape[0],))
+        for i in setY:
+            plt.plot(i,color='blue')
+        plt.plot(xss, ym, color='red', label="Prediction")
+        plt.fill_between(xss, ymm + 2. * np.sqrt(ys22), ymm - 2. * np.sqrt(ys22),
+                         facecolor=[0.7539, 0.89453125, 0.62890625, 1.0], linewidths=0.0, alpha=0.5)
+        plt.legend()
+        plt.show(block=True)
 
     rmseData = []
-    for i in range(0,len(vectorY),1):
+    for i in range(0, len(vectorY), 1):
         if weighted:
             rmse = math.sqrt(mean_squared_error(vectorY[i], y_pred, 1.1*np.max(ys2)-ys2))
         else:
             rmse = math.sqrt(mean_squared_error(vectorY[i], y_pred))
-        HH = labelList[i]
-        rmseData.append((HH,rmse))
+        rmseData.append((i,rmse))
     return rmseData
 
 
-def divideInClusters(clusterlist,labelList,threshold,clusterSize,splitRatio):
+def divideInClusters(clusterlist, labelList, threshold, clusterSize, splitRatio, weighted=True):
     """
     aux method for the clustering which divides the clusterlist further into clusters using a certain threshold
     Parameters:
@@ -83,9 +86,9 @@ def divideInClusters(clusterlist,labelList,threshold,clusterSize,splitRatio):
     --------
     list of clusters of (household,rmse) tuples
     """
-    vectorX,vectorY = clusterlist[0],clusterlist[1]
+    vectorX,vectorY = clusterlist[0], clusterlist[1]
 
-    listRMSE = calculateRMSEPyGP(vectorX, vectorY, labelList, weighted=True)
+    listRMSE = calculateRMSEPyGP(vectorX, vectorY, weighted=weighted)
     sortedListRMSE = sorted(listRMSE, key=lambda x: x[1])
 
     NormalizeValue = sortedListRMSE[-1][1]
