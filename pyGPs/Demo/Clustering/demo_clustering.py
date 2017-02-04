@@ -121,8 +121,8 @@ def hierarchical_step(series, split_rmse=None, max_avgrmse=None, min_size=None, 
                 cluster_right_l.append(series[0][i])
                 cluster_right_x.append(series[1][i])
                 cluster_right_y.append(series[2][i])
-        cluster_left = (cluster_left_x, cluster_left_y)
-        cluster_right = (cluster_right_x, cluster_right_y)
+        cluster_left = (cluster_left_l, cluster_left_x, cluster_left_y)
+        cluster_right = (cluster_right_l, cluster_right_x, cluster_right_y)
     else:
         print("ERROR: either rmse or clusterSize should be set")
         return None
