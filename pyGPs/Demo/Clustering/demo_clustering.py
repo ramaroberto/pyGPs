@@ -61,8 +61,10 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False):
         for i in setY:
             plt.plot(i,color='blue')
         plt.plot(xss, ym, color='red', label="Prediction")
+        print(ymm)
+        print(ys22)
         plt.fill_between(xss, ymm + 2. * np.sqrt(ys22), ymm - 2. * np.sqrt(ys22),
-                         facecolor=[0.7539, 0.89453125, 0.62890625, 1.0], linewidths=0.0, alpha=0.5)
+                         facecolor=[0.7539, 0.89453125, 0.62890625, 1.0], linewidth=0.0, alpha=0.5)
         plt.legend()
         plt.show(block=True)
 
@@ -109,6 +111,7 @@ def hierarchical_step(series, split_rmse=None, max_avgrmse=None, min_size=None, 
     cluster_right_y = []
 
     if min_size is not None:
+        # Split based on a ratio between clusters
         cluster_size_length = int(math.ceil(split_ratio * len(sortedListRMSE)))
         for idx, _ in sortedListRMSE[-cluster_size_length:]:
             cluster_left_l.append(labels[idx])
@@ -119,6 +122,7 @@ def hierarchical_step(series, split_rmse=None, max_avgrmse=None, min_size=None, 
             cluster_left_x.append(values_x[idx])
             cluster_left_y.append(values_y[idx])
     elif split_rmse is not None:
+        # Split based on RMSE
         for i, cur_rmse in sortedListRMSE:
             if cur_rmse <= split_rmse:
                 cluster_left_l.append(labels[i])
