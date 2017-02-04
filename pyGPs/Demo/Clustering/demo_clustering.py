@@ -13,6 +13,7 @@ Christiaan Leysen*, Mathias Verbeke†, Pierre Dagnely†, Wannes Meert*
 †Data Innovation Team, Sirris, Belgium
 https://lirias.kuleuven.be/bitstream/123456789/550688/1/conf2.pdf
 """
+import sys
 import pyGPs
 from sklearn import preprocessing
 from sklearn.metrics import mean_squared_error
@@ -80,16 +81,16 @@ def hierarchical_step(series, split_rmse=None, max_avgrmse=None, min_size=None, 
     """
     aux method for the clustering which divides the clusterlist further into clusters using a certain threshold.
 
-    :param series: list with timeseries which needs to be clustered
+    :param series: (labels, values_x, values_y)
     :param split_rmse: Split on this rmse (optional)
     :param max_avgrmse: mean similarity threshold to divide the clusters, otherwise do not split
     :param min_size: minimum cluster size, otherwise do not split
     :param splitratio: ratio of timeseries that will be devided into the left and right cluster (optional)
     :returns: (series_left, series_right, model, hyperparams)
     """
-    vectorX, vectorY = series
+    labels, values_x, values_y = series
 
-    listRMSE, hyperparams, model = calculate_rmse_gp(vectorX, vectorY, weighted=weighted, plot=plot)
+    listRMSE, hyperparams, model = calculate_rmse_gp(values_x, values_y, weighted=weighted, plot=plot)
     sortedListRMSE = sorted(listRMSE, key=lambda x: x[1])
     mean_rmse = np.mean([t[1] for t in sortedListRMSE])
     logger.info("Split at node, RMSE = [{}, {}, {}]".format(sortedListRMSE[0][1], mean_rmse, sortedListRMSE[-1][1]))
@@ -105,24 +106,28 @@ def hierarchical_step(series, split_rmse=None, max_avgrmse=None, min_size=None, 
         cluster_left = sortedListRMSE[-clusterSizeLength:]#[::-1]
         cluster_right = sortedListRMSE[:len(sortedListRMSE)-clusterSizeLength]#[::-1]
     elif split_rmse is not None:
+        cluster_left_l = []
         cluster_left_x = []
         cluster_left_y = []
+        cluster_right_l = []
         cluster_right_x = []
         cluster_right_y = []
         for i, cur_rmse in sortedListRMSE:
             if cur_rmse <= split_rmse:
-                cluster_left_x.append(series[0][i])
-                cluster_left_y.append(series[1][i])
+                cluster_left_l.append(series[0][i])
+                cluster_left_x.append(series[1][i])
+                cluster_left_y.append(series[2][i])
             else:
-                cluster_right_x.append(series[0][i])
-                cluster_right_y.append(series[1][i])
+                cluster_right_l.append(series[0][i])
+                cluster_right_x.append(series[1][i])
+                cluster_right_y.append(series[2][i])
         cluster_left = (cluster_left_x, cluster_left_y)
         cluster_right = (cluster_right_x, cluster_right_y)
     else:
         print("ERROR: either rmse or clusterSize should be set")
         return None
 
-    if min_size is None or (len(cluster_left[0]) >= min_size and len(cluster_right[0]) >= min_size):
+    if min_size is None or (len(cluster_left[2]) >= min_size and len(cluster_right[2]) >= min_size):
         # check goodness of cluster
         return cluster_left, cluster_right, model, hyperparams
     else:
@@ -139,9 +144,9 @@ def hierarchical_rec(series, max_depth=None, depth=0, **kwargs):
     if max_depth is not None and depth >= max_depth:
         return ClusterLeaf(series, depth)
     cluster_left, cluster_right, model, hyperparams = hierarchical_step(series, **kwargs)
-    if not cluster_right[1]:
+    if not cluster_right[2]:
         return ClusterLeaf(cluster_left, depth)
-    if not cluster_left[1]:
+    if not cluster_left[2]:
         return ClusterLeaf(cluster_right, depth)
     return ClusterNode(hierarchical_rec(cluster_left, depth + 1, **kwargs),
                        hierarchical_rec(cluster_right, depth + 1, **kwargs),
@@ -151,12 +156,23 @@ def hierarchical_rec(series, max_depth=None, depth=0, **kwargs):
 def hierarchical(series, max_depth=None, **kwargs):
     """Hierarchical clustering
 
-    :param series: [vectorX, vectorY]
+    :param series: [label, vectorX, vectorY]
     :param max_depth: Max tree depth
     :param kwargs: Args for divideInClusters
     :return: (series_left, series_right, model, hyperparams)
     """
     return hierarchical_rec(series, max_depth=max_depth, depth=0, **kwargs)
+
+
+def print_hierarchical_tree(cluster, cluster_idx=0, output=sys.stdout):
+    if type(cluster) == ClusterLeaf:
+        labels = [l for l,x,y in cluster.series]
+        print("{}Cluster {}: {}".format("  "*cluster.depth, cluster_idx, " ".join(labels)), file=output)
+    elif type(cluster) == ClusterNode:
+        print("{}Node left".format("  "*cluster.depth), file=output)
+        print_hierarchical_tree(cluster.left, file=output)
+        print("{}Node right".format("  " * cluster.depth), file=output)
+        print_hierarchical_tree(cluster.right, file=output)
 
 
 def test():
