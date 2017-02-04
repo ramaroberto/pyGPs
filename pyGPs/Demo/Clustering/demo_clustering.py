@@ -103,20 +103,24 @@ def hierarchical_step(series, split_rmse=None, max_avgrmse=None, min_size=None, 
         cluster_left = sortedListRMSE[-clusterSizeLength:]#[::-1]
         cluster_right = sortedListRMSE[:len(sortedListRMSE)-clusterSizeLength]#[::-1]
     elif split_rmse is not None:
-        cluster_left = []
-        cluster_right = []
+        cluster_left_x = []
+        cluster_left_y = []
+        cluster_right_x = []
+        cluster_right_y = []
         for i, cur_rmse in sortedListRMSE:
             if cur_rmse <= split_rmse:
-                cluster_left.append((series[0][i], series[1][i]))
+                cluster_left_x.append(series[0][i])
+                cluster_left_y.append(series[1][i])
             else:
-                cluster_right.append((series[0][i], series[1][i]))
+                cluster_right_x.append(series[0][i])
+                cluster_right_y.append(series[1][i])
     else:
         print("ERROR: either rmse or clusterSize should be set")
         return None
 
-    if min_size is None or (len(cluster_left) >= min_size and len(cluster_right) >= min_size):
+    if min_size is None or (len(cluster_left_y) >= min_size and len(cluster_right_y) >= min_size):
         # check goodness of cluster
-        return cluster_left, cluster_right, model, hyperparams
+        return (cluster_left_x, cluster_left_y), (cluster_right_x, cluster_right_y), model, hyperparams
     else:
         logger.debug('Cluster size too small, stopping')
         return series, [], model, hyperparams
