@@ -122,21 +122,21 @@ def hierarchical_step(series, split_rmse=None, max_avgrmse=None, min_size=None, 
         return series, [], model, hyperparams
 
 
-def hierarchical(series, depth=1, **kwargs):
+def hierarchical(series, max_depth=None, **kwargs):
     """Hierarchical clustering
 
     :param series: [vectorX, vectorY]
-    :param depth: Max tree depth
+    :param max_depth: Max tree depth
     :param kwargs: Args for divideInClusters
     :return: (series_left, series_right, model, hyperparams)
     """
-    logger.info("Hierarchical clustering, level {}".format(depth))
-    if depth == 0:
+    logger.info("Hierarchical clustering, level {}".format(max_depth))
+    if max_depth is not None and max_depth == 0:
         return series, None
     cluster1, cluster2, model, hyperparams = hierarchical_step(series, **kwargs)
     if cluster2 == [] or cluster2 is None:
         return cluster1, None, model, hyperparams
-    return hierarchical(cluster1, depth-1, **kwargs), hierarchical(cluster2, depth-1, **kwargs), model, hyperparams
+    return hierarchical(cluster1, max_depth - 1, **kwargs), hierarchical(cluster2, max_depth - 1, **kwargs), model, hyperparams
 
 
 def test():
