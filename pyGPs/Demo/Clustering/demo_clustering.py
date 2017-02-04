@@ -134,8 +134,8 @@ def hierarchical_rec(series, max_depth=None, depth=0, **kwargs):
     cluster_left, cluster_right, model, hyperparams = hierarchical_step(series, **kwargs)
     if cluster_right == [] or cluster_right is None:
         return cluster_left, None, model, hyperparams
-    print(cluster_left)
-    print(cluster_right)
+    print(len(cluster_left[0]))
+    print(len(cluster_right[0]))
     return hierarchical_rec(cluster_left, depth + 1, **kwargs), hierarchical_rec(cluster_right, depth + 1, **kwargs),\
         model, hyperparams
 
