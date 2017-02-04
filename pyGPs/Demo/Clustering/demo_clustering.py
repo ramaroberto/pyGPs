@@ -139,9 +139,9 @@ def hierarchical_rec(series, max_depth=None, depth=0, **kwargs):
     if max_depth is not None and depth >= max_depth:
         return ClusterLeaf(series, depth)
     cluster_left, cluster_right, model, hyperparams = hierarchical_step(series, **kwargs)
-    if cluster_right == [] or cluster_right is None:
+    if not cluster_right[1]:
         return ClusterLeaf(cluster_left, depth)
-    if cluster_left == [] or cluster_left is None:
+    if not cluster_left[1]:
         return ClusterLeaf(cluster_right, depth)
     return ClusterNode(hierarchical_rec(cluster_left, depth + 1, **kwargs),
                        hierarchical_rec(cluster_right, depth + 1, **kwargs),
