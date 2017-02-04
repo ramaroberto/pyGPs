@@ -71,65 +71,82 @@ def calculateRMSEPyGP(vectorX, vectorY, weighted=True, plot=False):
     return rmseData
 
 
-def divideInClusters(clusterlist, labelList, threshold, clusterSize, splitRatio, weighted=True):
+def hierarchical_step(series, split_rmse=None, min_avgrmse=None, min_size=None, split_ratio=None,
+                      weighted=True, plot=False):
     """
-    aux method for the clustering which divides the clusterlist further into clusters using a certain threshold
-    Parameters:
-    -----------
+    aux method for the clustering which divides the clusterlist further into clusters using a certain threshold.
 
-    clusterlist: list with timeseries which needs to be clustered
-    labelList: list with the labels of the timeseries
-    threshold: mean similarity threshold to divide the clusters
-    clusterSize: minimum cluster size
-    splitratio: ratio of timeseries that will be devided into a new cluster
-    Returns:
-    --------
-    list of clusters of (household,rmse) tuples
+    :param series: list with timeseries which needs to be clustered
+    :param split_rmse: Split on this rmse (optional)
+    :param min_avgrmse: mean similarity threshold to divide the clusters, otherwise do not split
+    :param min_size: minimum cluster size, otherwise do not split
+    :param splitratio: ratio of timeseries that will be devided into the left and right cluster (optional)
+    :returns: (series_left, series_right)
     """
-    vectorX,vectorY = clusterlist[0], clusterlist[1]
+    vectorX, vectorY = series
 
-    listRMSE = calculateRMSEPyGP(vectorX, vectorY, weighted=weighted)
+    listRMSE = calculateRMSEPyGP(vectorX, vectorY, weighted=weighted, plot=plot)
     sortedListRMSE = sorted(listRMSE, key=lambda x: x[1])
 
     NormalizeValue = sortedListRMSE[-1][1]
-    sortedListRMSE_normalized = [(x[0],x[1] / NormalizeValue) for x in sortedListRMSE][::-1]
+    sortedListRMSE_normalized = [(x[0], x[1] / NormalizeValue) for x in sortedListRMSE][::-1]
 
-    clusterSizeLength = int(math.ceil(splitRatio * len(sortedListRMSE_normalized)))
-
-    newClusterlist = sortedListRMSE_normalized[-clusterSizeLength:]#[::-1]
-    newRemaininglist = sortedListRMSE_normalized[:len(sortedListRMSE_normalized)-clusterSizeLength]#[::-1]
-
-    if (len(newClusterlist)>=clusterSize and len(newRemaininglist)>=clusterSize):
-        if(np.mean([item[1] for item in sortedListRMSE_normalized])<threshold): #check goodness of cluster
-            printClusterList = [item[0] for item in newClusterlist]
-            printRemainingList = [item[0] for item in newRemaininglist]
-            return newClusterlist,newRemaininglist,printClusterList,printRemainingList
-        else:
-            printClusterList = [item for item in labelList][::-1]
-            return clusterlist, [],printClusterList,[]
+    if min_size is not None:
+        clusterSizeLength = int(math.ceil(split_ratio * len(sortedListRMSE_normalized)))
+        cluster_left = sortedListRMSE_normalized[-clusterSizeLength:]#[::-1]
+        cluster_right = sortedListRMSE_normalized[:len(sortedListRMSE_normalized)-clusterSizeLength]#[::-1]
+    elif split_rmse is not None:
+        cluster_left = []
+        cluster_right = []
+        for i, cur_rmse in sortedListRMSE_normalized:
+            if cur_rmse <= split_rmse:
+                cluster_left.append(series[i])
+            else:
+                cluster_right.append(series[i])
     else:
-        printClusterList = [item[0] for item in clusterlist]
-        return clusterlist, [],printClusterList,[]
+        print("ERROR: either rmse or clusterSize should be set")
+        return  None
+
+    if min_size is None or (len(cluster_left)>=min_size and len(cluster_right)>=min_size):
+        if min_avgrmse is None or (np.mean([item[1] for item in sortedListRMSE_normalized])<min_avgrmse): #check goodness of cluster
+            return cluster_left,cluster_right
+        else:
+            return series, []
+    else:
+        return series, []
+
+
+def hierarchical(series, depth=1, **kwargs):
+    """Hierarchical clustering
+
+    :param series: [vectorX, vectorY]
+    :param depth: Max tree depth
+    :param kwargs: Args for divideInClusters
+    :return: (series_left, series_right)
+    """
+    if depth == 0:
+        return series, None
+    cluster1, cluster2 = hierarchical_step(series, **kwargs)
+    if cluster2 == [] or cluster2 is None:
+        return cluster1, None
+    return hierarchical(cluster1, depth-1, **kwargs), hierarchical(cluster2, depth-1, **kwargs)
 
 
 def test():
     vectorX =[]
     vectorY =[]
-    labelList = []
-    #Fill the x-values of the timeseries with a time between 0 and 20
+    # Fill the x-values of the timeseries with a time between 0 and 20
     for i in range(0,4):
         vectorX.append(np.array(range(0,20)))
-        labelList.append("timeseries"+str(i))
     print(vectorX)
 
-    #Fill the y-values of the timeseries (actual values)
+    # Fill the y-values of the timeseries (actual values)
     vectorY.append(np.array(range(3,23)))
     vectorY.append(np.array(range(4,24)))
     vectorY.append(np.array([2,2,2,2,2,2,2,2,2,2,2,13,14,15,16,17,18,19,20,21]))
     vectorY.append(np.array([3,3,3,3,3,3,3,3,3,3,3,11,12,13,14,15,16,17,18,19]))
 
-
-    #show input timeseries
+    # show input timeseries
     label = 0
     for i in vectorY:
         plt.plot(i,label='timeries'+str(label))
@@ -137,15 +154,16 @@ def test():
     plt.legend()
     plt.show()
 
-    #choose cluster parameters
-    splitRatio = 0.5 #splitsings ratio of the clusters
-    minClusterSize=1 #Minimum cluster size
-    meanSimilarityThreshold = 0.9 #similarity threshold
+    # choose cluster parameters
+    splitRatio = 0.5 # splitsings ratio of the clusters
+    minClusterSize=1 # Minimum cluster size
+    meanSimilarityThreshold = 0.9 # similarity threshold
 
-    newClusterlist,newRemaininglist,printClusterList,printRemainingList = divideInClusters([vectorX,vectorY],labelList,meanSimilarityThreshold,minClusterSize,splitRatio)
+    newClusterlist,newRemaininglist = hierarchical_step([vectorX, vectorY], None, meanSimilarityThreshold,
+                                                        minClusterSize, splitRatio)
 
-    print("cluster1: "+str(np.sort(printClusterList)))
-    print("cluster2: "+str(np.sort(printRemainingList)))
+    print("cluster1: "+str(np.sort(newClusterlist)))
+    print("cluster2: "+str(np.sort(newRemaininglist)))
 
 
 if __name__ == "__main__":
