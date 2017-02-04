@@ -17,7 +17,9 @@ from pyGPs.Demo.Clustering import pyGP_extension as GPE
 import numpy as np
 import matplotlib.pyplot as plt
 import math
+import logging
 
+logger = logging.getLogger("pyGPs.clustering")
 
 def calculateRMSEPyGP(vectorX, vectorY, weighted=True, plot=False):
     """
@@ -68,52 +70,56 @@ def calculateRMSEPyGP(vectorX, vectorY, weighted=True, plot=False):
         else:
             rmse = math.sqrt(mean_squared_error(vectorY[i], y_pred))
         rmseData.append((i,rmse))
-    return rmseData
+    return rmseData, hyperparams, model2
 
 
-def hierarchical_step(series, split_rmse=None, min_avgrmse=None, min_size=None, split_ratio=None,
+def hierarchical_step(series, split_rmse=None, max_avgrmse=None, min_size=None, split_ratio=None,
                       weighted=True, plot=False):
     """
     aux method for the clustering which divides the clusterlist further into clusters using a certain threshold.
 
     :param series: list with timeseries which needs to be clustered
     :param split_rmse: Split on this rmse (optional)
-    :param min_avgrmse: mean similarity threshold to divide the clusters, otherwise do not split
+    :param max_avgrmse: mean similarity threshold to divide the clusters, otherwise do not split
     :param min_size: minimum cluster size, otherwise do not split
     :param splitratio: ratio of timeseries that will be devided into the left and right cluster (optional)
-    :returns: (series_left, series_right)
+    :returns: (series_left, series_right, model, hyperparams)
     """
     vectorX, vectorY = series
 
-    listRMSE = calculateRMSEPyGP(vectorX, vectorY, weighted=weighted, plot=plot)
+    listRMSE, hyperparams, model = calculateRMSEPyGP(vectorX, vectorY, weighted=weighted, plot=plot)
     sortedListRMSE = sorted(listRMSE, key=lambda x: x[1])
+    mean_rmse = np.mean([t[1] for t in sortedListRMSE])
+    logger.info("Split at node, RMSE = [{},{},{}]".format(sortedListRMSE[0][1], mean_rmse, sortedListRMSE[-1][1]))
 
-    NormalizeValue = sortedListRMSE[-1][1]
-    sortedListRMSE_normalized = [(x[0], x[1] / NormalizeValue) for x in sortedListRMSE][::-1]
+    if max_avgrmse is not None and mean_rmse < max_avgrmse:
+        return series, [], model, hyperparams
+
+    # NormalizeValue = sortedListRMSE[-1][1]
+    # sortedListRMSE_normalized = [(x[0], x[1] / NormalizeValue) for x in sortedListRMSE][::-1]
 
     if min_size is not None:
-        clusterSizeLength = int(math.ceil(split_ratio * len(sortedListRMSE_normalized)))
-        cluster_left = sortedListRMSE_normalized[-clusterSizeLength:]#[::-1]
-        cluster_right = sortedListRMSE_normalized[:len(sortedListRMSE_normalized)-clusterSizeLength]#[::-1]
+        clusterSizeLength = int(math.ceil(split_ratio * len(sortedListRMSE)))
+        cluster_left = sortedListRMSE[-clusterSizeLength:]#[::-1]
+        cluster_right = sortedListRMSE[:len(sortedListRMSE)-clusterSizeLength]#[::-1]
     elif split_rmse is not None:
         cluster_left = []
         cluster_right = []
-        for i, cur_rmse in sortedListRMSE_normalized:
+        for i, cur_rmse in sortedListRMSE:
             if cur_rmse <= split_rmse:
                 cluster_left.append(series[i])
             else:
                 cluster_right.append(series[i])
     else:
         print("ERROR: either rmse or clusterSize should be set")
-        return  None
+        return None
 
-    if min_size is None or (len(cluster_left)>=min_size and len(cluster_right)>=min_size):
-        if min_avgrmse is None or (np.mean([item[1] for item in sortedListRMSE_normalized])<min_avgrmse): #check goodness of cluster
-            return cluster_left,cluster_right
-        else:
-            return series, []
+    if min_size is None or (len(cluster_left) >= min_size and len(cluster_right) >= min_size):
+        # check goodness of cluster
+        return cluster_left, cluster_right, model, hyperparams
     else:
-        return series, []
+        logger.debug('Cluster size too small, stopping')
+        return series, [], model, hyperparams
 
 
 def hierarchical(series, depth=1, **kwargs):
@@ -122,14 +128,15 @@ def hierarchical(series, depth=1, **kwargs):
     :param series: [vectorX, vectorY]
     :param depth: Max tree depth
     :param kwargs: Args for divideInClusters
-    :return: (series_left, series_right)
+    :return: (series_left, series_right, model, hyperparams)
     """
+    logger.info("Hierarchical, level {}".format(depth))
     if depth == 0:
         return series, None
-    cluster1, cluster2 = hierarchical_step(series, **kwargs)
+    cluster1, cluster2, model, hyperparams = hierarchical_step(series, **kwargs)
     if cluster2 == [] or cluster2 is None:
-        return cluster1, None
-    return hierarchical(cluster1, depth-1, **kwargs), hierarchical(cluster2, depth-1, **kwargs)
+        return cluster1, None, model, hyperparams
+    return hierarchical(cluster1, depth-1, **kwargs), hierarchical(cluster2, depth-1, **kwargs), model, hyperparams
 
 
 def test():
