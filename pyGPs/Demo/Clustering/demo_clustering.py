@@ -81,7 +81,7 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False):
     return rmseData, hyperparams, model2
 
 
-def hierarchical_step(series, split_rmse=None, split_avg=None, split_ratio=None,
+def hierarchical_step(series, split_rmse=None, split_avgrmse=None, split_ratio=None,
                       max_avgrmse=None, min_size=None,
                       weighted=True, plot=False):
     """
@@ -114,7 +114,7 @@ def hierarchical_step(series, split_rmse=None, split_avg=None, split_ratio=None,
     cluster_right_x = []
     cluster_right_y = []
 
-    if split_avg is not None:
+    if split_avgrmse is not None:
         mean_rmse = np.mean([t[1] for t in sortedListRMSE])
         for i, cur_rmse in sortedListRMSE:
             if cur_rmse <= mean_rmse:
