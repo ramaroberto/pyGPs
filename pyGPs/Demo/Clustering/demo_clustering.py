@@ -75,6 +75,7 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False):
         ax[0].legend()
         rmse_list = [t[1] for t in rmseData]
         ax[1].hist(rmse_list, bins=100)
+        ax[1].vlines(np.mean(rmse_list), 0, 2, color="red")
         # plt.show(block=True)
 
     return rmseData, hyperparams, model2
