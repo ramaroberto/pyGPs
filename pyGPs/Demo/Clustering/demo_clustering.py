@@ -96,43 +96,51 @@ def hierarchical_step(series, split_rmse=None, max_avgrmse=None, min_size=None, 
     logger.info("Split at node, RMSE = [{}, {}, {}]".format(sortedListRMSE[0][1], mean_rmse, sortedListRMSE[-1][1]))
 
     if max_avgrmse is not None and mean_rmse < max_avgrmse:
-        return series, [], model, hyperparams
+        return series, None, model, hyperparams
 
     # NormalizeValue = sortedListRMSE[-1][1]
     # sortedListRMSE_normalized = [(x[0], x[1] / NormalizeValue) for x in sortedListRMSE][::-1]
 
+    cluster_left_l = []
+    cluster_left_x = []
+    cluster_left_y = []
+    cluster_right_l = []
+    cluster_right_x = []
+    cluster_right_y = []
+
     if min_size is not None:
-        clusterSizeLength = int(math.ceil(split_ratio * len(sortedListRMSE)))
-        cluster_left = sortedListRMSE[-clusterSizeLength:]#[::-1]
-        cluster_right = sortedListRMSE[:len(sortedListRMSE)-clusterSizeLength]#[::-1]
+        cluster_size_length = int(math.ceil(split_ratio * len(sortedListRMSE)))
+        for idx, _ in sortedListRMSE[-cluster_size_length:]:
+            cluster_left_l.append(labels[idx])
+            cluster_left_x.append(values_x[idx])
+            cluster_left_y.append(values_y[idx])
+        for idx, _ in sortedListRMSE[:len(sortedListRMSE)-cluster_size_length]:
+            cluster_left_l.append(labels[idx])
+            cluster_left_x.append(values_x[idx])
+            cluster_left_y.append(values_y[idx])
     elif split_rmse is not None:
-        cluster_left_l = []
-        cluster_left_x = []
-        cluster_left_y = []
-        cluster_right_l = []
-        cluster_right_x = []
-        cluster_right_y = []
         for i, cur_rmse in sortedListRMSE:
             if cur_rmse <= split_rmse:
-                cluster_left_l.append(series[0][i])
-                cluster_left_x.append(series[1][i])
-                cluster_left_y.append(series[2][i])
+                cluster_left_l.append(labels[i])
+                cluster_left_x.append(values_x[i])
+                cluster_left_y.append(values_y[i])
             else:
-                cluster_right_l.append(series[0][i])
-                cluster_right_x.append(series[1][i])
-                cluster_right_y.append(series[2][i])
-        cluster_left = (cluster_left_l, cluster_left_x, cluster_left_y)
-        cluster_right = (cluster_right_l, cluster_right_x, cluster_right_y)
+                cluster_right_l.append(labels[i])
+                cluster_right_x.append(values_x[i])
+                cluster_right_y.append(values_y[i])
     else:
         print("ERROR: either rmse or clusterSize should be set")
         return None
+
+    cluster_left = (cluster_left_l, cluster_left_x, cluster_left_y)
+    cluster_right = (cluster_right_l, cluster_right_x, cluster_right_y)
 
     if min_size is None or (len(cluster_left[2]) >= min_size and len(cluster_right[2]) >= min_size):
         # check goodness of cluster
         return cluster_left, cluster_right, model, hyperparams
     else:
         logger.debug('Cluster size too small, stopping')
-        return series, [], model, hyperparams
+        return series, None, model, hyperparams
 
 
 ClusterNode = namedtuple("ClusterNode", ["left", "right", "model", "hyperparameters", "depth"])
@@ -144,9 +152,9 @@ def hierarchical_rec(series, max_depth=None, depth=0, **kwargs):
     if max_depth is not None and depth >= max_depth:
         return ClusterLeaf(series, depth)
     cluster_left, cluster_right, model, hyperparams = hierarchical_step(series, **kwargs)
-    if not cluster_right[2]:
+    if cluster_right is None or not cluster_right[2]:
         return ClusterLeaf(cluster_left, depth)
-    if not cluster_left[2]:
+    if cluster_left is None or not cluster_left[2]:
         return ClusterLeaf(cluster_right, depth)
     return ClusterNode(hierarchical_rec(cluster_left, depth + 1, **kwargs),
                        hierarchical_rec(cluster_right, depth + 1, **kwargs),
