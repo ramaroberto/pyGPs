@@ -72,8 +72,8 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=Non
         xss = np.reshape(xs, (xs.shape[0],))
         ymm = np.reshape(ym, (ym.shape[0],))
         ys22 = np.reshape(ys2, (ys2.shape[0],))
-        # for i in setY:
-            # ax[0].plot(i,color='blue')
+        for i in setY:
+            ax[0].plot(i,color='blue', alpha=0.2)
         ax[0].set_title("Node {}".format(context["cum_depth"]))
         ax[0].fill_between(xss, ymm + 2. * np.sqrt(ys22), ymm - 2. * np.sqrt(ys22),
                          facecolor=[0.7539, 0.89453125, 0.62890625, 1.0], linewidth=0.5)
