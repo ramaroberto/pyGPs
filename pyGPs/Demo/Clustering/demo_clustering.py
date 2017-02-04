@@ -51,11 +51,16 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False):
     print('hyperparameters used:', hyperparams)
     # mean (y_pred) variance (ys2), latent mean (fmu) variance (fs2), log predictive prob (lp)
     y_pred, ys2, fm, fs2, lp = model2.predict(vector_x[0])
+    last_vector_x = vector_x[0]
 
     rmseData = []
     for i in range(len(vector_y)):
+        if last_vector_x != vector_x[i]:
+            logger.debug("Recomputing prediction")
+            y_pred, ys2, fm, fs2, lp = model2.predict(vector_x[i])
+            last_vector_x = vector_x[i]
         if weighted:
-            rmse = math.sqrt(mean_squared_error(vector_y[i], y_pred, 1.1 * np.max(ys2) - ys2))
+            rmse = math.sqrt(mean_squared_error(vector_y[i], y_pred, (np.max(ys2) - ys2))/np.max(ys2))
         else:
             rmse = math.sqrt(mean_squared_error(vector_y[i], y_pred))
         rmseData.append((i, rmse))
@@ -67,8 +72,9 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False):
         xss = np.reshape(xs, (xs.shape[0],))
         ymm = np.reshape(ym, (ym.shape[0],))
         ys22 = np.reshape(ys2, (ys2.shape[0],))
-        for i in setY:
-            ax[0].plot(i,color='blue')
+        ax[0].title("Model for node")
+        # for i in setY:
+            # ax[0].plot(i,color='blue')
         ax[0].fill_between(xss, ymm + 2. * np.sqrt(ys22), ymm - 2. * np.sqrt(ys22),
                          facecolor=[0.7539, 0.89453125, 0.62890625, 1.0], linewidth=0.5)
         ax[0].plot(xss, ym, color='red', label="Prediction")
@@ -76,6 +82,8 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False):
         rmse_list = [t[1] for t in rmseData]
         ax[1].hist(rmse_list, bins=100)
         ax[1].vlines(np.mean(rmse_list), 0, 2, color="red")
+        ax[1].set_xlabel("RMSE")
+        ax[1].set_ylabel("#")
         # plt.show(block=True)
 
     return rmseData, hyperparams, model2

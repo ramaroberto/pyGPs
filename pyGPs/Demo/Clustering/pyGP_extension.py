@@ -9,7 +9,7 @@ import timeit
 
 ValuesY = []
 
-def gp_likelihood_independent(hyperparams,model,xs,ys,der=False):
+def gp_likelihood_independent(hyperparams, model, xs, ys, der=False):
     """
     find the aggregated likelihoods of the Gaussian process regression
     Parameters:
@@ -29,7 +29,7 @@ def gp_likelihood_independent(hyperparams,model,xs,ys,der=False):
     global ValuesY
 
     #set the hyperparameters
-    model.covfunc.hyp=hyperparams.tolist()
+    model.covfunc.hyp = hyperparams.tolist()
     likelihoodList = []
 
 
@@ -40,12 +40,12 @@ def gp_likelihood_independent(hyperparams,model,xs,ys,der=False):
     for x, y in zip(xs, ys):
         model.setData(x,y)
         if der:
-            this_nlZ,this_dnlZ,post = model.getPosterior(der=der)
+            this_nlZ, this_dnlZ, post = model.getPosterior(der=der)
             all_nlZ += this_nlZ
             all_dnlZ = all_dnlZ.accumulateDnlZ(this_dnlZ)
             likelihoodList.append(this_nlZ)
         else:
-            this_nlZ,post = model.getPosterior(der=der)
+            this_nlZ, post = model.getPosterior(der=der)
             all_nlZ += this_nlZ
             likelihoodList.append(this_nlZ)
 
@@ -62,7 +62,7 @@ def gp_likelihood_independent(hyperparams,model,xs,ys,der=False):
 
 
 
-def optimizeHyperparameters(initialHyperParameters,model,xs,ys,bounds=[],method='BFGS'):
+def optimizeHyperparameters(initialHyperParameters, model, xs, ys, bounds=[], method='BFGS'):
     """
     Optimize the hyperparameters of the general Gaussian process regression
     Parameters:
@@ -80,6 +80,7 @@ def optimizeHyperparameters(initialHyperParameters,model,xs,ys,bounds=[],method=
     the optimal hyperparameters and the model
     """
     global ValuesY
+    ValuesY = []
 
     print('optimizing Hyperparameters...')
     start = timeit.default_timer()
@@ -88,8 +89,8 @@ def optimizeHyperparameters(initialHyperParameters,model,xs,ys,bounds=[],method=
     print("minimization time:",stop - start)
 
     hyperparams = result.x
-    model.covfunc.hyp=hyperparams.tolist()
-    model.getPosterior(xs[0],ValuesY)
+    model.covfunc.hyp = hyperparams.tolist()
+    model.getPosterior(xs[0], ValuesY)
 
-    return hyperparams,model
+    return hyperparams, model
 
