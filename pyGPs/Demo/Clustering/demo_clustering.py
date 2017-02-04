@@ -64,7 +64,7 @@ def calculateRMSEPyGP(vectorX, vectorY, weighted=True, plot=False):
         plt.show(block=True)
 
     rmseData = []
-    for i in range(0, len(vectorY), 1):
+    for i in range(len(vectorY)):
         if weighted:
             rmse = math.sqrt(mean_squared_error(vectorY[i], y_pred, 1.1*np.max(ys2)-ys2))
         else:
@@ -90,7 +90,7 @@ def hierarchical_step(series, split_rmse=None, max_avgrmse=None, min_size=None, 
     listRMSE, hyperparams, model = calculateRMSEPyGP(vectorX, vectorY, weighted=weighted, plot=plot)
     sortedListRMSE = sorted(listRMSE, key=lambda x: x[1])
     mean_rmse = np.mean([t[1] for t in sortedListRMSE])
-    logger.info("Split at node, RMSE = [{},{},{}]".format(sortedListRMSE[0][1], mean_rmse, sortedListRMSE[-1][1]))
+    logger.info("Split at node, RMSE = [{}, {}, {}]".format(sortedListRMSE[0][1], mean_rmse, sortedListRMSE[-1][1]))
 
     if max_avgrmse is not None and mean_rmse < max_avgrmse:
         return series, [], model, hyperparams
@@ -107,9 +107,9 @@ def hierarchical_step(series, split_rmse=None, max_avgrmse=None, min_size=None, 
         cluster_right = []
         for i, cur_rmse in sortedListRMSE:
             if cur_rmse <= split_rmse:
-                cluster_left.append(series[i])
+                cluster_left.append((series[0][i], series[1][i]))
             else:
-                cluster_right.append(series[i])
+                cluster_right.append((series[0][i], series[1][i]))
     else:
         print("ERROR: either rmse or clusterSize should be set")
         return None
@@ -130,7 +130,7 @@ def hierarchical(series, depth=1, **kwargs):
     :param kwargs: Args for divideInClusters
     :return: (series_left, series_right, model, hyperparams)
     """
-    logger.info("Hierarchical, level {}".format(depth))
+    logger.info("Hierarchical clustering, level {}".format(depth))
     if depth == 0:
         return series, None
     cluster1, cluster2, model, hyperparams = hierarchical_step(series, **kwargs)
