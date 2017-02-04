@@ -127,10 +127,12 @@ def hierarchical_rec(series, max_depth=None, depth=0, **kwargs):
     logger.info("Hierarchical clustering, level {}".format(depth))
     if max_depth is not None and depth >= max_depth:
         return series, None
-    cluster1, cluster2, model, hyperparams = hierarchical_step(series, **kwargs)
-    if cluster2 == [] or cluster2 is None:
-        return cluster1, None, model, hyperparams
-    return hierarchical_rec(cluster1, depth + 1, **kwargs), hierarchical_rec(cluster2, depth + 1, **kwargs),\
+    cluster_left, cluster_right, model, hyperparams = hierarchical_step(series, **kwargs)
+    if cluster_right == [] or cluster_right is None:
+        return cluster_left, None, model, hyperparams
+    print(cluster_left)
+    print(cluster_right)
+    return hierarchical_rec(cluster_left, depth + 1, **kwargs), hierarchical_rec(cluster_right, depth + 1, **kwargs),\
         model, hyperparams
 
 
