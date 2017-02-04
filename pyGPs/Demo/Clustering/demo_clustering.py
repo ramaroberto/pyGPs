@@ -174,7 +174,7 @@ def hierarchical(series, max_depth=None, **kwargs):
 
 def print_hierarchical_tree(cluster, cluster_idx=0, output=sys.stdout):
     if type(cluster) == ClusterLeaf:
-        labels = [str(l) for l in cluster.series[0]]
+        labels = [str(l) for l in sorted(cluster.series[0])]
         print("{}Cluster {}: {}".format("  "*cluster.depth, cluster_idx, " ".join(labels)), file=output)
     elif type(cluster) == ClusterNode:
         print("{}Node left".format("  "*cluster.depth), file=output)
