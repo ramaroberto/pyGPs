@@ -81,7 +81,8 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False):
     return rmseData, hyperparams, model2
 
 
-def hierarchical_step(series, split_rmse=None, max_avgrmse=None, min_size=None, split_ratio=None,
+def hierarchical_step(series, split_rmse=None, split_avg=None, split_ratio=None,
+                      max_avgrmse=None, min_size=None,
                       weighted=True, plot=False):
     """
     aux method for the clustering which divides the clusterlist further into clusters using a certain threshold.
@@ -113,7 +114,18 @@ def hierarchical_step(series, split_rmse=None, max_avgrmse=None, min_size=None, 
     cluster_right_x = []
     cluster_right_y = []
 
-    if min_size is not None:
+    if split_avg is not None:
+        mean_rmse = np.mean([t[1] for t in sortedListRMSE])
+        for i, cur_rmse in sortedListRMSE:
+            if cur_rmse <= mean_rmse:
+                cluster_left_l.append(labels[i])
+                cluster_left_x.append(values_x[i])
+                cluster_left_y.append(values_y[i])
+            else:
+                cluster_right_l.append(labels[i])
+                cluster_right_x.append(values_x[i])
+                cluster_right_y.append(values_y[i])
+    elif split_ratio is not None:
         # Split based on a ratio between clusters
         cluster_size_length = int(math.ceil(split_ratio * len(sortedListRMSE)))
         for idx, _ in sortedListRMSE[-cluster_size_length:]:
