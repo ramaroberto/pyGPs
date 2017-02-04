@@ -28,7 +28,7 @@ from collections import namedtuple
 logger = logging.getLogger("pyGPs.clustering")
 
 
-def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=None):
+def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=None, optimization_params=None):
     """Calculate the root mean squared error.
 
     :param vector_x: timestamps of the timeseries
@@ -37,6 +37,8 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=Non
     :param plot: plot the expected function
     :returns: list(idx,rmse), hyperparams, model
     """
+    if optimization_params is None:
+        optimization_params = {}
     # setX = [preprocessing.scale(element )for element in vectorX]
     setY = preprocessing.scale(vector_y, axis=1)
 
@@ -44,10 +46,11 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=Non
     k =  pyGPs.cov.Linear() + pyGPs.cov.RBF() # hyperparams will be set with optimizeHyperparameters method
     model.setPrior(kernel=k)
 
-    hyperparams, model2 = GPE.optimizeHyperparameters([0.0000001, 0.0000001, 0.0000001],
-                                                      model, vector_x, setY,
-                                                      bounds=[(None, 5), (None, 5), (None, 5)],
-                                                      method = 'L-BFGS-B')
+    hyperparams, model2 = GPE.optimizeHyperparameters(
+        optimization_params.get("initialHyperParameters", [0.0000001, 0.0000001, 0.0000001]),
+        model, vector_x, setY,
+        bounds= optimization_params.get("bounds", [(None, 5), (None, 5), (None, 5)]),
+        method = optimization_params.get("method", 'L-BFGS-B'))
     print('hyperparameters used:', hyperparams)
     # mean (y_pred) variance (ys2), latent mean (fmu) variance (fs2), log predictive prob (lp)
     y_pred, ys2, fm, fs2, lp = model2.predict(vector_x[0])
@@ -93,7 +96,7 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=Non
 
 def hierarchical_step(series, split_rmse=None, split_avgrmse=None, split_ratio=None,
                       max_avgrmse=None, min_size=None,
-                      weighted=True, plot=False, context=None):
+                      weighted=True, plot=False, context=None, optimization_params=None):
     """
     aux method for the clustering which divides the clusterlist further into clusters using a certain threshold.
 
@@ -106,7 +109,8 @@ def hierarchical_step(series, split_rmse=None, split_avgrmse=None, split_ratio=N
     """
     labels, values_x, values_y = series
 
-    listRMSE, hyperparams, model = calculate_rmse_gp(values_x, values_y, weighted=weighted, plot=plot, context=context)
+    listRMSE, hyperparams, model = calculate_rmse_gp(values_x, values_y, weighted=weighted, plot=plot, context=context,
+                                                     optimization_params=optimization_params)
     sortedListRMSE = sorted(listRMSE, key=lambda x: x[1])
     mean_rmse = np.mean([t[1] for t in sortedListRMSE])
     logger.info("Split at node, RMSE = [{}, {}, {}]".format(sortedListRMSE[0][1], mean_rmse, sortedListRMSE[-1][1]))
@@ -173,34 +177,39 @@ def hierarchical_step(series, split_rmse=None, split_avgrmse=None, split_ratio=N
 
 
 ClusterNode = namedtuple("ClusterNode", ["left", "right", "model", "hyperparameters", "depth"])
-ClusterLeaf = namedtuple("ClusterLeaf", ["series", "depth"])
+ClusterLeaf = namedtuple("ClusterLeaf", ["series", "model", "hyperparameters", "depth"])
 
 
-def hierarchical_rec(series, max_depth=None, depth=0, context=None, **kwargs):
+def hierarchical_rec(series, max_depth=None, depth=0, context=None, optimization_params=None, **kwargs):
     logger.info("Hierarchical clustering, level {}".format(depth))
     context["depth"] = depth
     cum_depth = context["cum_depth"]
     if max_depth is not None and depth >= max_depth:
         return ClusterLeaf(series, depth)
-    cluster_left, cluster_right, model, hyperparams = hierarchical_step(series, context=context, **kwargs)
+    cluster_left, cluster_right, model, hyperparams = hierarchical_step(series, context=context,
+                                                                        optimization_params=optimization_params,
+                                                                        **kwargs)
     if cluster_right is None or not cluster_right[2]:
-        return ClusterLeaf(cluster_left, depth)
+        return ClusterLeaf(cluster_left, model, hyperparams, depth)
     if cluster_left is None or not cluster_left[2]:
-        return ClusterLeaf(cluster_right, depth)
+        return ClusterLeaf(cluster_right, model, hyperparams, depth)
     context["side"] = "left"
     context["cum_depth"] = cum_depth + " - {}/{}".format(depth, "left")
-    left = hierarchical_rec(cluster_left, max_depth=max_depth, depth=depth + 1, context=context, **kwargs)
+    left = hierarchical_rec(cluster_left, max_depth=max_depth, depth=depth + 1, context=context,
+                            optimization_params=optimization_params, **kwargs)
     context["side"] = "right"
     context["cum_depth"] = cum_depth + " - {}/{}".format(depth, "right")
-    right = hierarchical_rec(cluster_right, max_depth=max_depth, depth=depth + 1, context=context, **kwargs)
+    right = hierarchical_rec(cluster_right, max_depth=max_depth, depth=depth + 1, context=context,
+                             optimization_params=optimization_params, **kwargs)
     return ClusterNode(left, right, model, hyperparams, depth)
 
 
-def hierarchical(series, max_depth=None, **kwargs):
+def hierarchical(series, max_depth=None, optimization_params=None, **kwargs):
     """Hierarchical clustering
 
     :param series: [label, vectorX, vectorY]
     :param max_depth: Max tree depth
+    :param optimization_params: Dict with optional fields initialHyperParameters, bounds, method
     :param kwargs: Args for divideInClusters
     :return: (series_left, series_right, model, hyperparams)
     """
@@ -221,6 +230,16 @@ def print_hierarchical_tree(cluster, cluster_idx=0, output=sys.stdout):
         print("{}Node right".format("  " * cluster.depth), file=output)
         cluster_idx = print_hierarchical_tree(cluster.right, cluster_idx=cluster_idx, output=output)
         return cluster_idx
+
+
+def flat_clusters(cluster):
+    clusters = []
+    if type(cluster) == ClusterLeaf:
+        clusters.append(sorted(cluster.series[0]))
+    elif type(cluster) == ClusterNode:
+        clusters += flat_clusters(cluster.left)
+        clusters += flat_clusters(cluster.right)
+    return clusters
 
 
 def test():
