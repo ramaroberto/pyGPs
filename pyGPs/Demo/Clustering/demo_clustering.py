@@ -87,8 +87,6 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=Non
         ax[1].vlines(np.mean(rmse_list), 0, 2, color="red")
         ax[1].set_xlabel("RMSE")
         ax[1].set_ylabel("#")
-        if callable(plot):
-            plot(fig, ax)
         # plt.show(block=True)
 
     return rmseData, hyperparams, model2
@@ -184,11 +182,11 @@ def hierarchical_rec(series, max_depth=None, depth=0, context=None, optimization
     logger.info("Hierarchical clustering, level {}".format(depth))
     context["depth"] = depth
     cum_depth = context["cum_depth"]
-    if max_depth is not None and depth >= max_depth:
-        return ClusterLeaf(series, depth)
     cluster_left, cluster_right, model, hyperparams = hierarchical_step(series, context=context,
                                                                         optimization_params=optimization_params,
                                                                         **kwargs)
+    if max_depth is not None and depth >= max_depth:
+        return ClusterLeaf(series, model, hyperparams, depth)
     if cluster_right is None or not cluster_right[2]:
         return ClusterLeaf(cluster_left, model, hyperparams, depth)
     if cluster_left is None or not cluster_left[2]:
@@ -240,6 +238,14 @@ def flat_clusters(cluster):
         clusters += flat_clusters(cluster.left)
         clusters += flat_clusters(cluster.right)
     return clusters
+
+
+def visit_leafs(node, fun):
+    if type(node) == ClusterLeaf:
+        fun(node.series, node.model, node.hypermodels)
+    elif type(node) == ClusterNode:
+        visit_leafs(node.left, fun)
+        visit_leafs(node.right, fun)
 
 
 def test():
