@@ -122,6 +122,18 @@ def hierarchical_step(series, split_rmse=None, max_avgrmse=None, min_size=None, 
         return series, [], model, hyperparams
 
 
+def hierarchical_rec(series, max_depth=None, depth=0, **kwargs):
+
+    logger.info("Hierarchical clustering, level {}".format(depth))
+    if max_depth is not None and depth >= max_depth:
+        return series, None
+    cluster1, cluster2, model, hyperparams = hierarchical_step(series, **kwargs)
+    if cluster2 == [] or cluster2 is None:
+        return cluster1, None, model, hyperparams
+    return hierarchical_rec(cluster1, depth + 1, **kwargs), hierarchical_rec(cluster2, depth + 1, **kwargs),\
+        model, hyperparams
+
+
 def hierarchical(series, max_depth=None, **kwargs):
     """Hierarchical clustering
 
@@ -130,13 +142,7 @@ def hierarchical(series, max_depth=None, **kwargs):
     :param kwargs: Args for divideInClusters
     :return: (series_left, series_right, model, hyperparams)
     """
-    logger.info("Hierarchical clustering, level {}".format(max_depth))
-    if max_depth is not None and max_depth == 0:
-        return series, None
-    cluster1, cluster2, model, hyperparams = hierarchical_step(series, **kwargs)
-    if cluster2 == [] or cluster2 is None:
-        return cluster1, None, model, hyperparams
-    return hierarchical(cluster1, max_depth - 1, **kwargs), hierarchical(cluster2, max_depth - 1, **kwargs), model, hyperparams
+    return hierarchical_rec(series, max_depth=max_depth, depth=0, **kwargs)
 
 
 def test():
