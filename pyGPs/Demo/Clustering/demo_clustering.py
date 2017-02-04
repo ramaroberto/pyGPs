@@ -55,7 +55,7 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False):
 
     rmseData = []
     for i in range(len(vector_y)):
-        if not np.equal(last_vector_x, vector_x[i]):
+        if not np.all(np.equal(last_vector_x, vector_x[i])):
             logger.debug("Recomputing prediction")
             y_pred, ys2, fm, fs2, lp = model2.predict(vector_x[i])
             last_vector_x = vector_x[i]
