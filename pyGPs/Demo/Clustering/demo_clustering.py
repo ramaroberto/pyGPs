@@ -176,11 +176,13 @@ def print_hierarchical_tree(cluster, cluster_idx=0, output=sys.stdout):
     if type(cluster) == ClusterLeaf:
         labels = [str(l) for l in sorted(cluster.series[0])]
         print("{}Cluster {}: {}".format("  "*cluster.depth, cluster_idx, " ".join(labels)), file=output)
+        return cluster_idx + 1
     elif type(cluster) == ClusterNode:
         print("{}Node left".format("  "*cluster.depth), file=output)
-        print_hierarchical_tree(cluster.left, file=output)
+        cluster_idx = print_hierarchical_tree(cluster.left, cluster_idx=cluster_idx, output=output)
         print("{}Node right".format("  " * cluster.depth), file=output)
-        print_hierarchical_tree(cluster.right, file=output)
+        cluster_idx = print_hierarchical_tree(cluster.right, cluster_idx=cluster_idx, output=output)
+        return cluster_idx
 
 
 def test():
