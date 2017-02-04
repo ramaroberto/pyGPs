@@ -1,16 +1,19 @@
-__author__ = 'christiaanleysen'
+"""
 
-# This example divides a set of timeseries into two clusters of the most similar timeseries using the general 
-# model learn over a set of timeseries.
-#
-# Find more information in the foloowing paper: 
-#
-# "Energy consumption profiling using Gaussian Processes",
-# Christiaan Leysen*, Mathias Verbeke†, Pierre Dagnely†, Wannes Meert* 
-# *Dept. Computer Science, KU Leuven, Belgium
-# †Data Innovation Team, Sirris, Belgium
-# https://lirias.kuleuven.be/bitstream/123456789/550688/1/conf2.pdf
-import pyGPs,math
+__author__ = ['christiaanleysen', 'wannesmeert']
+
+This example divides a set of time-series into two clusters of the most similar time-series using the general
+model learn over a set of time-series.
+
+Find more information in the following paper:
+
+"Energy consumption profiling using Gaussian Processes",
+Christiaan Leysen*, Mathias Verbeke†, Pierre Dagnely†, Wannes Meert*
+*Dept. Computer Science, KU Leuven, Belgium
+†Data Innovation Team, Sirris, Belgium
+https://lirias.kuleuven.be/bitstream/123456789/550688/1/conf2.pdf
+"""
+import pyGPs
 from sklearn import preprocessing
 from sklearn.metrics import mean_squared_error
 from pyGPs.Demo.Clustering import pyGP_extension as GPE
@@ -18,39 +21,38 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 import logging
+from collections import namedtuple
+
 
 logger = logging.getLogger("pyGPs.clustering")
 
-def calculateRMSEPyGP(vectorX, vectorY, weighted=True, plot=False):
+
+def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False):
+    """Calculate the root mean squared error.
+
+    :param vector_x: timestamps of the timeseries
+    :param vector_y: valueSet of the timeseries
+    :param weighted: weight RMSE wrt variance of prediction
+    :param plot: plot the expected function
+    :returns: list(idx,rmse), hyperparams, model
     """
-    calculate the root mean squared error
-    Parameters:
-    -----------
-    vectorX: timestamps of the timeseries
-    vectorY: valueSet of the timeseries
-    labelList: labels of the timeseries
-    weighted: weight RMSE wrt variance of prediction
-    Returns:
-    --------
-    list of (id,rmse) tuples
-    """
-    #setX = [preprocessing.scale(element )for element in vectorX]
-    setY = preprocessing.scale(vectorY,axis=1)
+    # setX = [preprocessing.scale(element )for element in vectorX]
+    setY = preprocessing.scale(vector_y, axis=1)
 
     model = pyGPs.GPR()      # specify model (GP regression)
     k =  pyGPs.cov.Linear() + pyGPs.cov.RBF() # hyperparams will be set with optimizeHyperparameters method
     model.setPrior(kernel=k)
 
     hyperparams, model2 = GPE.optimizeHyperparameters([0.0000001, 0.0000001, 0.0000001],
-                                                      model, vectorX, setY,
+                                                      model, vector_x, setY,
                                                       bounds=[(None, 5), (None, 5), (None, 5)],
                                                       method = 'L-BFGS-B')
     print('hyperparameters used:', hyperparams)
     # mean (y_pred) variance (ys2), latent mean (fmu) variance (fs2), log predictive prob (lp)
-    y_pred, ys2, fm, fs2, lp = model2.predict(vectorX[0])
+    y_pred, ys2, fm, fs2, lp = model2.predict(vector_x[0])
 
     if plot:
-        xs = vectorX[0]
+        xs = vector_x[0]
         ym = y_pred
         xss = np.reshape(xs, (xs.shape[0],))
         ymm = np.reshape(ym, (ym.shape[0],))
@@ -64,11 +66,11 @@ def calculateRMSEPyGP(vectorX, vectorY, weighted=True, plot=False):
         plt.show(block=True)
 
     rmseData = []
-    for i in range(len(vectorY)):
+    for i in range(len(vector_y)):
         if weighted:
-            rmse = math.sqrt(mean_squared_error(vectorY[i], y_pred, 1.1*np.max(ys2)-ys2))
+            rmse = math.sqrt(mean_squared_error(vector_y[i], y_pred, 1.1 * np.max(ys2) - ys2))
         else:
-            rmse = math.sqrt(mean_squared_error(vectorY[i], y_pred))
+            rmse = math.sqrt(mean_squared_error(vector_y[i], y_pred))
         rmseData.append((i,rmse))
     return rmseData, hyperparams, model2
 
@@ -87,7 +89,7 @@ def hierarchical_step(series, split_rmse=None, max_avgrmse=None, min_size=None, 
     """
     vectorX, vectorY = series
 
-    listRMSE, hyperparams, model = calculateRMSEPyGP(vectorX, vectorY, weighted=weighted, plot=plot)
+    listRMSE, hyperparams, model = calculate_rmse_gp(vectorX, vectorY, weighted=weighted, plot=plot)
     sortedListRMSE = sorted(listRMSE, key=lambda x: x[1])
     mean_rmse = np.mean([t[1] for t in sortedListRMSE])
     logger.info("Split at node, RMSE = [{}, {}, {}]".format(sortedListRMSE[0][1], mean_rmse, sortedListRMSE[-1][1]))
@@ -114,30 +116,36 @@ def hierarchical_step(series, split_rmse=None, max_avgrmse=None, min_size=None, 
             else:
                 cluster_right_x.append(series[0][i])
                 cluster_right_y.append(series[1][i])
+        cluster_left = (cluster_left_x, cluster_left_y)
+        cluster_right = (cluster_right_x, cluster_right_y)
     else:
         print("ERROR: either rmse or clusterSize should be set")
         return None
 
-    if min_size is None or (len(cluster_left_y) >= min_size and len(cluster_right_y) >= min_size):
+    if min_size is None or (len(cluster_left[0]) >= min_size and len(cluster_right[0]) >= min_size):
         # check goodness of cluster
-        return (cluster_left_x, cluster_left_y), (cluster_right_x, cluster_right_y), model, hyperparams
+        return cluster_left, cluster_right, model, hyperparams
     else:
         logger.debug('Cluster size too small, stopping')
         return series, [], model, hyperparams
 
 
-def hierarchical_rec(series, max_depth=None, depth=0, **kwargs):
+ClusterNode = namedtuple("ClusterNode", ["left", "right", "model", "hyperparameters", "depth"])
+ClusterLeaf = namedtuple("ClusterLeaf", ["series", "depth"])
 
+
+def hierarchical_rec(series, max_depth=None, depth=0, **kwargs):
     logger.info("Hierarchical clustering, level {}".format(depth))
     if max_depth is not None and depth >= max_depth:
-        return series, None
+        return ClusterLeaf(series, depth)
     cluster_left, cluster_right, model, hyperparams = hierarchical_step(series, **kwargs)
     if cluster_right == [] or cluster_right is None:
-        return cluster_left, None, model, hyperparams
-    print(len(cluster_left[0]))
-    print(len(cluster_right[0]))
-    return hierarchical_rec(cluster_left, depth + 1, **kwargs), hierarchical_rec(cluster_right, depth + 1, **kwargs),\
-        model, hyperparams
+        return ClusterLeaf(cluster_left, depth)
+    if cluster_left == [] or cluster_left is None:
+        return ClusterLeaf(cluster_right, depth)
+    return ClusterNode(hierarchical_rec(cluster_left, depth + 1, **kwargs),
+                       hierarchical_rec(cluster_right, depth + 1, **kwargs),
+                       model, hyperparams, depth)
 
 
 def hierarchical(series, max_depth=None, **kwargs):
