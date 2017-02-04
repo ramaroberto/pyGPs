@@ -28,7 +28,7 @@ from collections import namedtuple
 logger = logging.getLogger("pyGPs.clustering")
 
 
-def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False):
+def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=None):
     """Calculate the root mean squared error.
 
     :param vector_x: timestamps of the timeseries
@@ -72,9 +72,9 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False):
         xss = np.reshape(xs, (xs.shape[0],))
         ymm = np.reshape(ym, (ym.shape[0],))
         ys22 = np.reshape(ys2, (ys2.shape[0],))
-        ax[0].title("Model for node")
         # for i in setY:
             # ax[0].plot(i,color='blue')
+        fig.set_title("Node {}".format(context["cum_depth"]))
         ax[0].fill_between(xss, ymm + 2. * np.sqrt(ys22), ymm - 2. * np.sqrt(ys22),
                          facecolor=[0.7539, 0.89453125, 0.62890625, 1.0], linewidth=0.5)
         ax[0].plot(xss, ym, color='red', label="Prediction")
@@ -84,6 +84,8 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False):
         ax[1].vlines(np.mean(rmse_list), 0, 2, color="red")
         ax[1].set_xlabel("RMSE")
         ax[1].set_ylabel("#")
+        if callable(plot):
+            plot(fig, ax)
         # plt.show(block=True)
 
     return rmseData, hyperparams, model2
@@ -91,7 +93,7 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False):
 
 def hierarchical_step(series, split_rmse=None, split_avgrmse=None, split_ratio=None,
                       max_avgrmse=None, min_size=None,
-                      weighted=True, plot=False):
+                      weighted=True, plot=False, context=None):
     """
     aux method for the clustering which divides the clusterlist further into clusters using a certain threshold.
 
@@ -104,7 +106,7 @@ def hierarchical_step(series, split_rmse=None, split_avgrmse=None, split_ratio=N
     """
     labels, values_x, values_y = series
 
-    listRMSE, hyperparams, model = calculate_rmse_gp(values_x, values_y, weighted=weighted, plot=plot)
+    listRMSE, hyperparams, model = calculate_rmse_gp(values_x, values_y, weighted=weighted, plot=plot, context=context)
     sortedListRMSE = sorted(listRMSE, key=lambda x: x[1])
     mean_rmse = np.mean([t[1] for t in sortedListRMSE])
     logger.info("Split at node, RMSE = [{}, {}, {}]".format(sortedListRMSE[0][1], mean_rmse, sortedListRMSE[-1][1]))
@@ -174,8 +176,10 @@ ClusterNode = namedtuple("ClusterNode", ["left", "right", "model", "hyperparamet
 ClusterLeaf = namedtuple("ClusterLeaf", ["series", "depth"])
 
 
-def hierarchical_rec(series, max_depth=None, depth=0, **kwargs):
+def hierarchical_rec(series, max_depth=None, depth=0, context=None, **kwargs):
     logger.info("Hierarchical clustering, level {}".format(depth))
+    context["depth"] = depth
+    cum_depth = context["cum_depth"]
     if max_depth is not None and depth >= max_depth:
         return ClusterLeaf(series, depth)
     cluster_left, cluster_right, model, hyperparams = hierarchical_step(series, **kwargs)
@@ -183,9 +187,13 @@ def hierarchical_rec(series, max_depth=None, depth=0, **kwargs):
         return ClusterLeaf(cluster_left, depth)
     if cluster_left is None or not cluster_left[2]:
         return ClusterLeaf(cluster_right, depth)
-    return ClusterNode(hierarchical_rec(cluster_left, max_depth=max_depth, depth=depth + 1, **kwargs),
-                       hierarchical_rec(cluster_right, max_depth=max_depth, depth=depth + 1, **kwargs),
-                       model, hyperparams, depth)
+    context["side"] = "left"
+    context["cum_depth"] = cum_depth + " - {}/{}".format(depth, "left")
+    left = hierarchical_rec(cluster_left, max_depth=max_depth, depth=depth + 1, context=context, **kwargs)
+    context["side"] = "right"
+    context["cum_depth"] = cum_depth + " - {}/{}".format(depth, "right")
+    right = hierarchical_rec(cluster_right, max_depth=max_depth, depth=depth + 1, context=context, **kwargs)
+    return ClusterNode(left, right, model, hyperparams, depth)
 
 
 def hierarchical(series, max_depth=None, **kwargs):
@@ -196,7 +204,10 @@ def hierarchical(series, max_depth=None, **kwargs):
     :param kwargs: Args for divideInClusters
     :return: (series_left, series_right, model, hyperparams)
     """
-    return hierarchical_rec(series, max_depth=max_depth, depth=0, **kwargs)
+    context = {
+        "cum_depth": "^"
+    }
+    return hierarchical_rec(series, max_depth=max_depth, depth=0, context=context, **kwargs)
 
 
 def print_hierarchical_tree(cluster, cluster_idx=0, output=sys.stdout):
