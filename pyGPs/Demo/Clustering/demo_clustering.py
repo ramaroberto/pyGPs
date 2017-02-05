@@ -173,12 +173,7 @@ def hierarchical_step(series, split_rmse=None, split_avgrmse=None, split_ratio=N
     cluster_left = (cluster_left_l, cluster_left_x, cluster_left_y)
     cluster_right = (cluster_right_l, cluster_right_x, cluster_right_y)
 
-    if min_size is None or (len(cluster_left[2]) >= min_size and len(cluster_right[2]) >= min_size):
-        # check goodness of cluster
-        return cluster_left, cluster_right, model, hyperparams
-    else:
-        logger.debug('Cluster size too small, stopping')
-        return series, None, model, hyperparams
+    return cluster_left, cluster_right, model, hyperparams
 
 
 ClusterNode = namedtuple("ClusterNode", ["left", "right", "model", "hyperparameters", "depth"])
