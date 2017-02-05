@@ -106,7 +106,7 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=Non
         rmse_data.append((i, rmse))
 
     if plot:
-        fig, ax = plt.subplots(nrows=1, ncols=2)
+        fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,4))
         xs = vector_x[0]
         ym = y_pred
         xss = np.reshape(xs, (xs.shape[0],))
