@@ -40,7 +40,7 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=Non
     if optimization_params is None:
         optimization_params = {}
     # setX = [preprocessing.scale(element )for element in vectorX]
-    setY = preprocessing.scale(vector_y, axis=1)
+    # setY = preprocessing.scale(vector_y, axis=1)
 
     model = pyGPs.GPR()      # specify model (GP regression)
     k =  pyGPs.cov.Linear() + pyGPs.cov.RBF() # hyperparams will be set with optimizeHyperparameters method
@@ -48,7 +48,7 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=Non
 
     hyperparams, model2 = GPE.optimizeHyperparameters(
         optimization_params.get("initialHyperParameters", [0.0000001, 0.0000001, 0.0000001]),
-        model, vector_x, setY,
+        model, vector_x, vector_y,
         bounds= optimization_params.get("bounds", [(None, 5), (None, 5), (None, 5)]),
         method = optimization_params.get("method", 'L-BFGS-B'))
     print('hyperparameters used:', hyperparams)
@@ -75,7 +75,7 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=Non
         xss = np.reshape(xs, (xs.shape[0],))
         ymm = np.reshape(ym, (ym.shape[0],))
         ys22 = np.reshape(ys2, (ys2.shape[0],))
-        for i in setY:
+        for i in vector_y:
             ax[0].plot(i,color='blue', alpha=0.2)
         ax[0].set_title("Node {}".format(context["cum_depth"]))
         ax[0].fill_between(xss, ymm + 3. * np.sqrt(ys22), ymm - 3. * np.sqrt(ys22),
@@ -254,37 +254,35 @@ def visit_leafs(node, fun):
 
 
 def test():
-    vectorX =[]
-    vectorY =[]
-    # Fill the x-values of the timeseries with a time between 0 and 20
+    series_l = list(range(4))
+    series_x = []
+    series_y = []
+    # Fill the x-values of the time-series with a time between 0 and 20
     for i in range(0,4):
-        vectorX.append(np.array(range(0,20)))
-    print(vectorX)
+        series_x.append(np.array(range(0,20)))
+    print(series_x)
 
-    # Fill the y-values of the timeseries (actual values)
-    vectorY.append(np.array(range(3,23)))
-    vectorY.append(np.array(range(4,24)))
-    vectorY.append(np.array([2,2,2,2,2,2,2,2,2,2,2,13,14,15,16,17,18,19,20,21]))
-    vectorY.append(np.array([3,3,3,3,3,3,3,3,3,3,3,11,12,13,14,15,16,17,18,19]))
+    # Fill the y-values of the time-series (actual values)
+    series_y.append(np.array(range(3,23)))
+    series_y.append(np.array(range(4,24)))
+    series_y.append(np.array([2,2,2,2,2,2,2,2,2,2,2,13,14,15,16,17,18,19,20,21]))
+    series_y.append(np.array([3,3,3,3,3,3,3,3,3,3,3,11,12,13,14,15,16,17,18,19]))
+
+    # Normalize, focus on shape
+    series_y = [preprocessing.scale(v, axis=1) for v in series_y]
 
     # show input timeseries
     label = 0
-    for i in vectorY:
+    for i in series_y:
         plt.plot(i,label='timeries'+str(label))
         label += 1
     plt.legend()
     plt.show()
 
-    # choose cluster parameters
-    splitRatio = 0.5 # splitsings ratio of the clusters
-    minClusterSize=1 # Minimum cluster size
-    meanSimilarityThreshold = 0.9 # similarity threshold
-
-    newClusterlist,newRemaininglist = hierarchical_step([vectorX, vectorY], None, meanSimilarityThreshold,
-                                                        minClusterSize, splitRatio)
-
-    print("cluster1: "+str(np.sort(newClusterlist)))
-    print("cluster2: "+str(np.sort(newRemaininglist)))
+    # Perform clustering
+    result = hierarchical([series_l, series_x, series_y], split_ratio=0.5, depth=1, min_size=1, plot=False)
+    for cluster_i, cluster in enumerate(flat_clusters(result)):
+        print("Cluster {}: ".format(cluster_i) + " ".join([str(i) for i in cluster]))
 
 
 if __name__ == "__main__":
