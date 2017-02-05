@@ -85,7 +85,7 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=Non
         model, vector_x_train, vector_y_train,
         bounds=optimization_params.get("bounds", [(None, 5), (None, 5), (None, 5)]),
         method=optimization_params.get("method", 'L-BFGS-B'))
-    print('hyperparameters used:', hyperparams)
+    logger.info('Hyperparameters used: {}'.format(hyperparams))
     # mean (y_pred) variance (ys2), latent mean (fmu) variance (fs2), log predictive prob (lp)
     y_pred, ys2, fm, fs2, lp = model2.predict(vector_x[0])
     last_vector_x = vector_x[0]
@@ -314,7 +314,6 @@ def test():
     # Fill the x-values of the time-series with a time between 0 and 20
     for i in range(0, 4):
         series_x.append(np.array(range(0, 20)))
-    print(series_x)
 
     # Fill the y-values of the time-series (actual values)
     series_y.append(np.array(range(3, 23)))
