@@ -115,6 +115,10 @@ def hierarchical_step(series, split_rmse=None, split_avgrmse=None, split_ratio=N
     logger.info("Split at node, RMSE = [{}, {}, {}]".format(sortedListRMSE[0][1], mean_rmse, sortedListRMSE[-1][1]))
 
     if max_avgrmse is not None and mean_rmse < max_avgrmse:
+        logger.debug('Avg RMSE too small, stopping')
+        return series, None, model, hyperparams
+    if min_size is not None and len(values_y) < min_size:
+        logger.debug('Cluster size too small, stopping')
         return series, None, model, hyperparams
 
     # NormalizeValue = sortedListRMSE[-1][1]
