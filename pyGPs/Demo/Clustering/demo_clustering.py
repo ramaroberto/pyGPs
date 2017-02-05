@@ -58,6 +58,9 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=Non
             for idx in sample:
                 vector_y_train.append(vector_y[idx])
                 vector_x_train.append(vector_x[idx])
+    else:
+        vector_y_train = vector_y
+        vector_x_train = vector_x
 
     model = pyGPs.GPR()      # specify model (GP regression)
     k = pyGPs.cov.Linear() + pyGPs.cov.RBF() # hyperparams will be set with optimizeHyperparameters method
