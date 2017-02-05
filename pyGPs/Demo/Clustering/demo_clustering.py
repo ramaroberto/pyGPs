@@ -22,13 +22,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 import logging
+import random
 from collections import namedtuple
 
 
 logger = logging.getLogger("pyGPs.clustering")
 
 
-def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=None, optimization_params=None):
+def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=None, optimization_params=None,
+                      signed=False, sample=None):
     """Calculate the root mean squared error.
 
     :param vector_x: timestamps of the timeseries
@@ -42,13 +44,28 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=Non
     # setX = [preprocessing.scale(element )for element in vectorX]
     # setY = preprocessing.scale(vector_y, axis=1)
 
+    if sample:
+        if type(sample) == float:
+            logger.debug("Sample series for training")
+            vector_y_train = []
+            vector_x_train = []
+            for idx in random.sample(range(len(vector_y)), k=int(len(vector_y)*sample_ratio)):
+                vector_y_train.append(vector_y[idx])
+                vector_x_train.append(vector_x[idx])
+        elif type(sample) == list:
+            vector_y_train = []
+            vector_x_train = []
+            for idx in sample:
+                vector_y_train.append(vector_y[idx])
+                vector_x_train.append(vector_x[idx])
+
     model = pyGPs.GPR()      # specify model (GP regression)
-    k =  pyGPs.cov.Linear() + pyGPs.cov.RBF() # hyperparams will be set with optimizeHyperparameters method
+    k = pyGPs.cov.Linear() + pyGPs.cov.RBF() # hyperparams will be set with optimizeHyperparameters method
     model.setPrior(kernel=k)
 
     hyperparams, model2 = GPE.optimizeHyperparameters(
         optimization_params.get("initialHyperParameters", [0.0000001, 0.0000001, 0.0000001]),
-        model, vector_x, vector_y,
+        model, vector_x_train, vector_y_train,
         bounds= optimization_params.get("bounds", [(None, 5), (None, 5), (None, 5)]),
         method = optimization_params.get("method", 'L-BFGS-B'))
     print('hyperparameters used:', hyperparams)
@@ -66,6 +83,9 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=Non
             rmse = math.sqrt(mean_squared_error(vector_y[i], y_pred, (np.max(ys2) - ys2))/np.max(ys2))
         else:
             rmse = math.sqrt(mean_squared_error(vector_y[i], y_pred))
+        if signed:
+            if np.mean(vector_y[i] - y_pred) < 0:
+                rmse = -rmse
         rmseData.append((i, rmse))
 
     if plot:
@@ -94,7 +114,7 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=Non
 
 def hierarchical_step(series, split_rmse=None, split_avgrmse=None, split_ratio=None,
                       max_avgrmse=None, min_size=None,
-                      weighted=True, plot=False, context=None, optimization_params=None):
+                      weighted=True, plot=False, context=None, optimization_params=None, signed=False, sample=None):
     """
     aux method for the clustering which divides the clusterlist further into clusters using a certain threshold.
 
@@ -109,7 +129,8 @@ def hierarchical_step(series, split_rmse=None, split_avgrmse=None, split_ratio=N
     labels, values_x, values_y = series
 
     listRMSE, hyperparams, model = calculate_rmse_gp(values_x, values_y, weighted=weighted, plot=plot, context=context,
-                                                     optimization_params=optimization_params)
+                                                     optimization_params=optimization_params, signed=signed,
+                                                     sample=sample)
     sortedListRMSE = sorted(listRMSE, key=lambda x: x[1])
     mean_rmse = np.mean([t[1] for t in sortedListRMSE])
     logger.info("Split at node, RMSE = [{}, {}, {}]".format(sortedListRMSE[0][1], mean_rmse, sortedListRMSE[-1][1]))
