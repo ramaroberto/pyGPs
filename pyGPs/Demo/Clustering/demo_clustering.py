@@ -100,6 +100,7 @@ def hierarchical_step(series, split_rmse=None, split_avgrmse=None, split_ratio=N
 
     :param series: (labels, values_x, values_y)
     :param split_rmse: Split on this rmse (optional)
+    :param split_avgrmse: Split on the average rmse (or split_avgrms*avgrmse if a number is given)
     :param max_avgrmse: mean similarity threshold to divide the clusters, otherwise do not split
     :param min_size: minimum cluster size, otherwise do not split
     :param splitratio: ratio of timeseries that will be devided into the left and right cluster (optional)
@@ -128,6 +129,8 @@ def hierarchical_step(series, split_rmse=None, split_avgrmse=None, split_ratio=N
 
     if split_avgrmse is not None:
         mean_rmse = np.mean([t[1] for t in sortedListRMSE])
+        if type(split_avgrmse) in [int, float]:
+            mean_rmse *= split_avgrmse
         for i, cur_rmse in sortedListRMSE:
             if cur_rmse <= mean_rmse:
                 cluster_left_l.append(labels[i])
