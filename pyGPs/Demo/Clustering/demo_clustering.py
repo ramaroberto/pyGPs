@@ -127,6 +127,12 @@ def hierarchical_step(series, split_rmse=None, split_avgrmse=None, split_ratio=N
     :param max_avgrmse: mean similarity threshold to divide the clusters, otherwise do not split
     :param min_size: minimum cluster size, otherwise do not split
     :param splitratio: ratio of timeseries that will be devided into the left and right cluster (optional)
+    :param plot: Plot the intermediate steps of the algorithm
+    :param context: For internal use.
+    :param signed: Use positive and negative rmse based on whether the prediction is on average lower or higher
+        than the actual series
+    :param sample: Learn only on a subset of the data (speeds up learning). This can be a number (e.g., 0.8) or a
+        list of indices (e.g., [1,3,4,6])
     :returns: (series_left, series_right, model, hyperparams)
     """
     labels, values_x, values_y = series
@@ -138,7 +144,7 @@ def hierarchical_step(series, split_rmse=None, split_avgrmse=None, split_ratio=N
     mean_rmse = np.mean([t[1] for t in sortedListRMSE])
     logger.info("Split at node, RMSE = [{}, {}, {}]".format(sortedListRMSE[0][1], mean_rmse, sortedListRMSE[-1][1]))
 
-    if max_avgrmse is not None and mean_rmse < max_avgrmse:
+    if max_avgrmse is not None and abs(mean_rmse) < max_avgrmse:
         logger.debug('Avg RMSE too small, stopping')
         return series, None, model, hyperparams
     if min_size is not None and len(values_y) < min_size:
@@ -205,6 +211,7 @@ ClusterLeaf = namedtuple("ClusterLeaf", ["series", "model", "hyperparameters", "
 
 
 def hierarchical_rec(series, max_depth=None, depth=0, context=None, optimization_params=None, **kwargs):
+    """Options are passed to hierarchical_step"""
     logger.info("Hierarchical clustering, level {}".format(depth))
     context["depth"] = depth
     cum_depth = context["cum_depth"]
@@ -237,7 +244,7 @@ def hierarchical(series, max_depth=None, optimization_params=None, **kwargs):
     :param series: [label, vectorX, vectorY]
     :param max_depth: Max tree depth
     :param optimization_params: Dict with optional fields initialHyperParameters, bounds, method
-    :param kwargs: Args for divideInClusters
+    :param kwargs: Args for hierarchical_rec
     :return: (series_left, series_right, model, hyperparams)
     """
     context = {
