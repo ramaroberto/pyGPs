@@ -188,10 +188,13 @@ def hierarchical_rec(series, max_depth=None, depth=0, context=None, optimization
                                                                         optimization_params=optimization_params,
                                                                         **kwargs)
     if max_depth is not None and depth >= max_depth:
+        logger.debug("Max depth reached")
         return ClusterLeaf(series, model, hyperparams, depth)
     if cluster_right is None or not cluster_right[2]:
+        logger.debug("Right branch is empty")
         return ClusterLeaf(cluster_left, model, hyperparams, depth)
     if cluster_left is None or not cluster_left[2]:
+        logger.debug("Left branch is empty")
         return ClusterLeaf(cluster_right, model, hyperparams, depth)
     context["side"] = "left"
     context["cum_depth"] = cum_depth + " - {}/{}".format(depth, "left")
