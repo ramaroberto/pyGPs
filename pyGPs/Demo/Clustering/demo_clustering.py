@@ -49,7 +49,7 @@ def calculate_rmse_gp(vector_x, vector_y, weighted=True, plot=False, context=Non
             logger.debug("Sample series for training")
             vector_y_train = []
             vector_x_train = []
-            for idx in random.sample(range(len(vector_y)), k=int(len(vector_y)*sample_ratio)):
+            for idx in random.sample(range(len(vector_y)), k=int(len(vector_y)*sample)):
                 vector_y_train.append(vector_y[idx])
                 vector_x_train.append(vector_x[idx])
         elif type(sample) == list:
