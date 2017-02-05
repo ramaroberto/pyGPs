@@ -242,7 +242,7 @@ def flat_clusters(cluster):
 
 def visit_leafs(node, fun):
     if type(node) == ClusterLeaf:
-        fun(node.series, node.model, node.hypermodels)
+        fun(node.series, node.model, node.hyperparameters)
     elif type(node) == ClusterNode:
         visit_leafs(node.left, fun)
         visit_leafs(node.right, fun)
