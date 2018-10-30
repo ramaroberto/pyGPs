@@ -48,7 +48,7 @@ num_Iteration = 10
 w = 1e-4
 dist = 'tv'         # possible values: 'tv', 'hellinger'
 np.random.seed(1)    # set random seed to get reproducible kernel matrices (to account for randomness in kernel average resutls over several returns of the experiment)    
-K = graphKernels.propagationKernel(A, node_label, gr_id, num_Iteration, w, dist, 'label_diffusion', SUM=True, VIS=False, showEachStep=False) 
+K = graphKernels.propagationKernel(A, node_label, gr_id.astype(int), num_Iteration, w, dist, 'label_diffusion', SUM=True, VIS=False, showEachStep=False) 
 
 #----------------------------------------------------------------------
 # Cross Validation
